@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Maps Place ID Finder & Review QR Code Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAENHge1YoGUvY0dwAYVJqZDO1GaAFoIEQ&libraries=places,geometry"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        #map {
+            height: 400px;
+            width: 60%;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+        }
+        #qr-section {
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #qrcode {
+            margin-top: 20px;
+            display: inline-block;
+        }
+        input, button {
+            margin: 10px;
+            padding: 5px;
+        }
+        #output {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Find Place ID and Generate Review QR Code</h2>
+
+    <!-- Search Box -->
+    <div>
+        <input type="text" id="searchInput" placeholder="Search for a place (e.g., Eiffel Tower)" size="50">
+        <button onclick="searchPlace()">Search</button>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Place ID and QR Code Generation -->
+    <div id="qr-section">
+        <label for="placeId">Selected Place ID:</label><br>
+        <input type="text" id="placeId" readonly size="40"><br>
+        <button onclick="generateQRFromPlaceId()">Generate QR Code</button>
+        <div id="qrcode"></div>
+    </div>
+
+    <!-- Output -->
+    <p id="output"></p>
+
+    <script>
+        let map;
+        let service;
+        let marker;
+
+        // Initialize the map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 0, lng: 0 },
+                zoom: 2
+            });
+            service = new google.maps.places.PlacesService(map);
+
+            map.addListener('click', (event) => {
+                const latLng = event.latLng;
+                service.nearbySearch({
+                    location: latLng,
+                    radius: 500,
+                    type: 'establishment'
+                }, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results[0]) {
+                        const placeId = results[0].place_id;
+                        document.getElementById('placeId').value = placeId;
+                        updateMarker(results[0].geometry.location);
+                    }
+                });
+            });
+        }
+
+        // Search for a place
+        function searchPlace() {
+            const searchInput = document.getElementById('searchInput').value.trim();
+            if (!searchInput) {
+                alert("Please enter a place name or address!");
+                return;
+            }
+
+            service.findPlaceFromQuery({
+                query: searchInput,
+                fields: ['place_id', 'geometry', 'name']
+            }, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK && results[0]) {
+                    const placeId = results[0].place_id;
+                    const location = results[0].geometry.location;
+                    document.getElementById('placeId').value = placeId;
+                    map.setCenter(location);
+                    map.setZoom(15);
+                    updateMarker(location);
+                } else {
+                    alert("Place not found! Try a more specific name or address.");
+                }
+            });
+        }
+
+        // Update marker
+        function updateMarker(location) {
+            if (marker) {
+                marker.setMap(null);
+            }
+            marker = new google.maps.Marker({
+                position: location,
+                map: map
+            });
+        }
+
+        // Generate QR code
+        function generateQRFromPlaceId() {
+            const placeId = document.getElementById('placeId').value.trim();
+            if (!placeId) {
+                alert("Please select a place on the map or search for one first!");
+                return;
+            }
+
+            const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
+            generateQRCode(reviewUrl, `Review QR Code for Place ID: ${placeId}`);
+        }
+
+        // Generate QR code
+        function generateQRCode(url, description) {
+            document.getElementById('qrcode').innerHTML = "";
+            document.getElementById('output').innerText = "";
+
+            new QRCode(document.getElementById('qrcode'), {
+                text: url,
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('output').innerText = `${description}\nLink: ${url}`;
+        }
+
+        // Load the map
+        window.onload = initMap;
+    </script>
+</body>
+</html>
